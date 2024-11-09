@@ -18,7 +18,6 @@ mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
 // Define a schema and model for the sensor data
 const sensorDataSchema = new mongoose.Schema({
   distance: { type: Number, required: true },
-  relayStatus: { type: String, required: true },  // Added relayStatus field
   timestamp: { type: Date, default: Date.now },
 });
 
@@ -29,22 +28,26 @@ let relayState = 'OFF';  // Default state is OFF
 
 // POST route to receive data from the ESP32
 app.post('/sensor', async (req, res) => {
-  const { distance, relayStatus } = req.body;  // Extract distance and relayStatus from the request body
+  const { distance } = req.body;  // Extract distance data from the request body
 
-  if (distance === undefined || relayStatus === undefined) {
-    return res.status(400).json({ message: 'Distance or relay status not provided' });
+  if (distance === undefined) {
+    return res.status(400).json({ message: 'Distance not provided' });
   }
 
-  // Create a new document with the received distance and relayStatus data
-  const newSensorData = new SensorData({ distance, relayStatus });
+  // Create a new document with the received distance data
+  const newSensorData = new SensorData({ distance });
 
   try {
     // Save the data to MongoDB
     await newSensorData.save();
-    console.log(`Saved distance: ${distance} cm, Relay Status: ${relayStatus}`);
+    console.log(`Saved distance: ${distance} cm`);
 
-    // Respond with a success message
-    res.status(200).json({ message: 'Data received and saved successfully', distance, relayStatus });
+    // Respond with a success message and the relay status
+    res.status(200).json({ 
+      message: 'Data received and saved successfully', 
+      distance, 
+      relayState 
+    });
   } catch (error) {
     console.error('Error saving data to MongoDB', error);
     res.status(500).json({ message: 'Failed to save data to database' });
@@ -65,6 +68,7 @@ app.get('/latest-sensor', async (req, res) => {
     res.status(200).json({
       message: 'Latest sensor data retrieved successfully',
       data: latestData,
+      relayState,  // Add relay status to the response
     });
   } catch (error) {
     console.error('Error retrieving data from MongoDB', error);
@@ -83,10 +87,7 @@ app.post('/control-relay', (req, res) => {
     // Here, you would add code to actually control the relay hardware (GPIO pin)
     // Example: relayModule.turnOn() or something similar depending on your hardware
 
-    // Save the relay status change to the database
-    saveRelayStatus('ON');
-
-    return res.status(200).json({ message: 'Relay turned ON', relayStatus: relayState });
+    return res.status(200).json({ message: 'Relay turned ON', relayState });
   } 
   else if (action === 'OFF') {
     relayState = 'OFF';
@@ -95,30 +96,18 @@ app.post('/control-relay', (req, res) => {
     // Here, you would add code to actually turn the relay off
     // Example: relayModule.turnOff()
 
-    // Save the relay status change to the database
-    saveRelayStatus('OFF');
-
-    return res.status(200).json({ message: 'Relay turned OFF', relayStatus: relayState });
+    return res.status(200).json({ message: 'Relay turned OFF', relayState });
   } 
   else {
     return res.status(400).json({ message: 'Invalid action. Use ON or OFF.' });
   }
 });
 
-// Helper function to save relay status in the database
-async function saveRelayStatus(status) {
-  try {
-    // Create a new sensor data document with relay status (you can leave distance as null or a dummy value)
-    const relayData = new SensorData({
-      distance: null,  // No distance value, but we are saving relay status change
-      relayStatus: status,
-    });
-    await relayData.save();
-    console.log(`Relay status updated to: ${status}`);
-  } catch (error) {
-    console.error('Error saving relay status', error);
-  }
-}
+// GET route to fetch the current relay status
+app.get('/relay-status', (req, res) => {
+  // Simply return the current relay state
+  res.status(200).json({ relayState });
+});
 
 // Start the server
 app.listen(port, () => {
