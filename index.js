@@ -18,6 +18,7 @@ mongoose.connect(mongoURI, { useNewUrlParser: true, useUnifiedTopology: true })
 // Define a schema and model for the sensor data
 const sensorDataSchema = new mongoose.Schema({
   distance: { type: Number, required: true },
+  relayState: { type: String, required: true },
   timestamp: { type: Date, default: Date.now },
 });
 
@@ -28,21 +29,21 @@ let relayState = 'OFF';  // Default state is OFF
 
 // POST route to receive data from the ESP32
 app.post('/sensor', async (req, res) => {
-  const { distance } = req.body;  // Extract distance data from the request body
+  const { distance, relayState } = req.body;  // Extract distance and relayState data from the request body
 
-  if (distance === undefined) {
-    return res.status(400).json({ message: 'Distance not provided' });
+  if (distance === undefined || relayState === undefined) {
+    return res.status(400).json({ message: 'Distance and relayState are required' });
   }
 
-  // Create a new document with the received distance data
-  const newSensorData = new SensorData({ distance });
+  // Create a new document with the received distance and relayState data
+  const newSensorData = new SensorData({ distance, relayState });
 
   try {
     // Save the data to MongoDB
     await newSensorData.save();
-    console.log(`Saved distance: ${distance} cm`);
+    console.log(`Saved distance: ${distance} cm, Relay State: ${relayState}`);
 
-    // Respond with a success message and the relay status
+    // Respond with a success message
     res.status(200).json({ 
       message: 'Data received and saved successfully', 
       distance, 
