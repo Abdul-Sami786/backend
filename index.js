@@ -23,10 +23,13 @@ const sensorDataSchema = new mongoose.Schema({
 
 const SensorData = mongoose.model('SensorData', sensorDataSchema);
 
-// Define a POST route to receive data from the ESP32
+// Relay state (For simulation, in a real-world case you'd control GPIO pins here)
+let relayState = 'OFF';  // Default state is OFF
+
+// POST route to receive data from the ESP32
 app.post('/sensor', async (req, res) => {
   const { distance } = req.body;  // Extract distance data from the request body
-  
+
   if (distance === undefined) {
     return res.status(400).json({ message: 'Distance not provided' });
   }
@@ -47,7 +50,7 @@ app.post('/sensor', async (req, res) => {
   }
 });
 
-// Define a GET route to retrieve the latest inserted data
+// GET route to retrieve the latest inserted sensor data
 app.get('/latest-sensor', async (req, res) => {
   try {
     // Find the latest sensor data (sorted by timestamp in descending order, limit to 1)
@@ -65,6 +68,33 @@ app.get('/latest-sensor', async (req, res) => {
   } catch (error) {
     console.error('Error retrieving data from MongoDB', error);
     res.status(500).json({ message: 'Failed to retrieve data from database' });
+  }
+});
+
+// POST route to control the relay (turn on or off)
+app.post('/control-relay', (req, res) => {
+  const { action } = req.body;  // Get the action (ON or OFF) from the request body
+
+  if (action === 'ON') {
+    relayState = 'ON';
+    console.log("Relay turned ON");
+
+    // Here, you would add code to actually control the relay hardware (GPIO pin)
+    // Example: relayModule.turnOn() or something similar depending on your hardware
+
+    return res.status(200).json({ message: 'Relay turned ON' });
+  } 
+  else if (action === 'OFF') {
+    relayState = 'OFF';
+    console.log("Relay turned OFF");
+
+    // Here, you would add code to actually turn the relay off
+    // Example: relayModule.turnOff()
+
+    return res.status(200).json({ message: 'Relay turned OFF' });
+  } 
+  else {
+    return res.status(400).json({ message: 'Invalid action. Use ON or OFF.' });
   }
 });
 
